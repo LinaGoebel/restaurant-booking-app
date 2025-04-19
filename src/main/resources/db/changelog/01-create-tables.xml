@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.4.xsd">
+
+    <changeSet id="01-create-restaurant-tables" author="lina goebel">
+        <createTable tableName="restaurant_tables">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="table_number" type="INT">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="capacity" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_vip" type="BOOLEAN" defaultValueBoolean="false"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="02-create-booking-table" author="lina goebel">
+        <createTable tableName="booking">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="table_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_booking_table" references="restaurant_tables(id)"/>
+            </column>
+            <column name="start_time" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="end_time" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="customer_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="customer_email" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="customer_phone" type="VARCHAR(50)"/>
+            <column name="status" type="VARCHAR(20)" defaultValue="CONFIRMED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueDate="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="TIMESTAMP" defaultValueDate="CURRENT_TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="03-create-indices" author="lina goebel">
+        <createIndex indexName="idx_booking_table_id" tableName="booking">
+            <column name="table_id"/>
+        </createIndex>
+        <createIndex indexName="idx_booking_status" tableName="booking">
+            <column name="status"/>
+        </createIndex>
+        <createIndex indexName="idx_booking_start_time" tableName="booking">
+            <column name="start_time"/>
+        </createIndex>
+        <createIndex indexName="idx_booking_customer_email" tableName="booking">
+            <column name="customer_email"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

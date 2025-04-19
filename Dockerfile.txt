@@ -1,0 +1,14 @@
+# Используем официальный образ Java
+FROM openjdk:17-jdk-slim
+
+# Рабочая директория
+WORKDIR /app
+
+# Копируем JAR-файл
+COPY target/*.jar app.jar
+
+# Порт, который будет использовать приложение
+EXPOSE 8080
+
+# Команда для запуска
+ENTRYPOINT ["java", "-jar", "app.jar"]
