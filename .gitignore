@@ -39,3 +39,9 @@ buildNumber.properties
 .mvn/wrapper/maven-wrapper.jar
 .project
 .classpath
+
+# Backup files
+*~
+*.bak
+*.swp
+*.tmp
