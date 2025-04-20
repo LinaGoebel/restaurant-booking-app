@@ -49,6 +49,7 @@ public class Booking {
     @Column(name = "customer_phone")
     private String customerPhone;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private BookingStatus status = BookingStatus.CONFIRMED;

@@ -12,7 +12,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "restaurant_tables")
+@Table(name = "booking_tables")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,6 +29,7 @@ public class BookingTable {
     @Column(nullable = false)
     private Integer capacity;
 
+    @Builder.Default
     @Column(name = "is_vip")
     private Boolean isVip = false;
 
