@@ -6,6 +6,7 @@ import de.restaurant_booking_app.model.Booking;
 import de.restaurant_booking_app.model.BookingStatus;
 import de.restaurant_booking_app.model.BookingTable;
 import de.restaurant_booking_app.service.BookingService;
+import de.restaurant_booking_app.service.EmailReceiverService;
 import de.restaurant_booking_app.service.TableService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -26,11 +27,13 @@ public class ConsoleUI implements CommandLineRunner {
     private final TableService tableService;
     private final Scanner scanner;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private final EmailReceiverService emailReceiverService;
 
     @Autowired
-    public ConsoleUI(BookingService bookingService, TableService tableService) {
+    public ConsoleUI(BookingService bookingService, TableService tableService, EmailReceiverService emailReceiverService) {
         this.bookingService = bookingService;
         this.tableService = tableService;
+        this.emailReceiverService = emailReceiverService;
         this.scanner = new Scanner(System.in);
     }
 
@@ -57,6 +60,9 @@ public class ConsoleUI implements CommandLineRunner {
                 case 4:
                     running = false;
                     break;
+                case 5:
+                    running = false;
+                    break;
                 default:
                     System.out.println("Неверный выбор. Пожалуйста, попробуйте снова.");
             }
@@ -65,12 +71,14 @@ public class ConsoleUI implements CommandLineRunner {
         System.out.println("Выход из программы.");
     }
 
+
     private void printMenu() {
         System.out.println("\n=== Система бронирования столиков ===");
         System.out.println("1. Создать бронирование");
         System.out.println("2. Просмотреть все бронирования");
         System.out.println("3. Отменить бронирование");
-        System.out.println("4. Выйти");
+        System.out.println("4. Проверить входящую почту");
+        System.out.println("5. Выйти");
         System.out.print("Выберите опцию: ");
     }
 
@@ -188,6 +196,26 @@ public class ConsoleUI implements CommandLineRunner {
         } catch (DateTimeParseException e) {
             System.out.println("Неверный формат даты и времени. Используйте формат: yyyy-MM-dd HH:mm");
             return null;
+        }
+    }
+
+    private void checkEmails() {
+        System.out.println("\n=== Проверка непрочитанных писем ===");
+
+        List<String> unreadEmails = emailReceiverService.readUnreadEmails();
+
+        if (unreadEmails.isEmpty()) {
+            System.out.println("Непрочитанных писем нет.");
+            return;
+        }
+
+        System.out.println("Найдено " + unreadEmails.size() + " непрочитанных писем:");
+
+        for (int i = 0; i < unreadEmails.size(); i++) {
+            System.out.println("\nПисьмо #" + (i + 1) + ":");
+            System.out.println("----------------------------");
+            System.out.println(unreadEmails.get(i));
+            System.out.println("----------------------------");
         }
     }
 }

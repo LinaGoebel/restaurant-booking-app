@@ -22,10 +22,13 @@ public class BookingService {
 
     private final BookingTableRepository bookingTableRepository;
     private final BookingRepository bookingRepository;
+    private final EmailService emailService;
 
-    public BookingService(BookingTableRepository bookingTableRepository, BookingRepository bookingRepository) {
+    public BookingService(BookingTableRepository bookingTableRepository, BookingRepository bookingRepository,
+                          EmailService emailService) {
         this.bookingTableRepository = bookingTableRepository;
         this.bookingRepository = bookingRepository;
+        this.emailService = emailService;
     }
 
     public List<Booking> getAllBookings() {
@@ -66,9 +69,14 @@ public class BookingService {
                 .customerPhone(bookingDto.getCustomerPhone())
                 .status(BookingStatus.CONFIRMED)
                 .build();
+        Booking savedBooking = bookingRepository.save(booking);
+        emailService.sendBookingConfirmation(savedBooking);
 
-        return bookingRepository.save(booking);
+
+        return savedBooking;
+
     }
+
 
     /**
      * Отмена бронирования
@@ -78,7 +86,9 @@ public class BookingService {
         Booking booking = getBookingById(id);
 
         booking.setStatus(BookingStatus.CANCELLED);
-        return bookingRepository.save(booking);
+        Booking cancelledBooking = bookingRepository.save(booking);
+        emailService.sendBookingCancellation(cancelledBooking);
+        return cancelledBooking;
     }
 
     /**
@@ -111,7 +121,11 @@ public class BookingService {
         existingBooking.setCustomerEmail(bookingDto.getCustomerEmail());
         existingBooking.setCustomerPhone(bookingDto.getCustomerPhone());
 
-        return bookingRepository.save(existingBooking);
+        Booking updatedBooking = bookingRepository.save(existingBooking);
+
+        emailService.sendBookingUpdate(updatedBooking);
+
+        return updatedBooking;
     }
 
     /**
@@ -164,6 +178,4 @@ public class BookingService {
             log.info("Старых бронирований для удаления не найдено");
         }
     }
-
-
 }

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title th:remove="all">Ресторан - Информация о бронировании</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+            margin-bottom: 20px;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            color: #777;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h2>Ресторан "У Клода"</h2>
+        <p>Информация о бронировании</p>
+    </div>
+
+    <div>
+        <p>Уважаемый(ая) <strong th:text="${name}">Имя клиента</strong>,</p>
+
+        <div th:utext="${message}">
+            Детали бронирования будут здесь
+        </div>
+
+        <p>Если у вас возникли вопросы, пожалуйста, свяжитесь с нами по телефону +7 (999) 123-45-67.</p>
+
+        <p>С уважением,<br />
+            Команда ресторана "У Клода"</p>
+    </div>
+
+    <div class="footer">
+        <p>Это автоматическое сообщение, пожалуйста, не отвечайте на него.</p>
+        <p>&copy; 2025 Ресторан "У Клода". Все права защищены.</p>
+    </div>
+</div>
+</body>
+</html>

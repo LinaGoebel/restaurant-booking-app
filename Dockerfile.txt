@@ -1,14 +1,23 @@
-# Используем официальный образ Java
-FROM openjdk:17-jdk-slim
-
-# Рабочая директория
+# Этап сборки
+FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
+COPY pom.xml .
+# Загрузка зависимостей
+RUN mvn dependency:go-offline
+COPY src ./src
+# Сборка приложения
+RUN mvn package -DskipTests
 
-# Копируем JAR-файл
-COPY target/*.jar app.jar
-
-# Порт, который будет использовать приложение
+# Этап запуска
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+# Копирование JAR из этапа сборки
+COPY --from=build /app/target/*.jar app.jar
+# Установка UTF-8 для корректного отображения русских символов
+ENV LANG=ru_RU.UTF-8
+# Переменные окружения для PostgreSQL
+ENV SPRING_PROFILES_ACTIVE=prod
+# Порт приложения
 EXPOSE 8080
-
 # Команда для запуска
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Dfile.encoding=UTF-8", "-jar", "app.jar"]
