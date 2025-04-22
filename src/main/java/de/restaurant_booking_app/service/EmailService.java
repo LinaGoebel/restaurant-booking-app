@@ -106,7 +106,7 @@ public class EmailService {
     /**
      * Общий метод для отправки писем
      */
-    private void sendEmail(String to, String subject, Context context) throws MessagingException {
+    public void sendEmail(String to, String subject, Context context) throws MessagingException {
         String htmlContent = templateEngine.process("email-template", context);
 
         MimeMessage message = mailSender.createMimeMessage();
@@ -117,5 +117,6 @@ public class EmailService {
         helper.setText(htmlContent, true);
 
         mailSender.send(message);
+        log.info("Отправлено письмо на email: {}", to);
     }
 }

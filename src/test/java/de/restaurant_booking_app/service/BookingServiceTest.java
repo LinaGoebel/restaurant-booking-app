@@ -9,118 +9,147 @@ import de.restaurant_booking_app.repository.BookingRepository;
 import de.restaurant_booking_app.repository.BookingTableRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.Import;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.*;
 
-@DataJpaTest
-@Import({BookingService.class, TableService.class})
+@ExtendWith(MockitoExtension.class)
 public class BookingServiceTest {
 
-    @Autowired
-    private BookingService bookingService;
-
-    @Autowired
-    private TableService tableService;
-
-    @Autowired
+    @Mock
     private BookingRepository bookingRepository;
 
-    @Autowired
+    @Mock
     private BookingTableRepository tableRepository;
 
+    @Mock
+    private EmailService emailService;
+
+    private BookingService bookingService;
     private BookingTable testTable;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
     @BeforeEach
     void setUp() {
-        // Очищаем данные перед каждым тестом
-        bookingRepository.deleteAll();
-        tableRepository.deleteAll();
+        // Инициализация сервиса с моками
+        bookingService = new BookingService(tableRepository, bookingRepository, emailService);
 
-        // Создаем тестовый столик
-        testTable = BookingTable.builder()
-                .tableNumber(99)
-                .capacity(4)
-                .isVip(false)
-                .build();
-        testTable = tableRepository.save(testTable);
+        // Настройка тестовых данных
+        testTable = new BookingTable();
+        testTable.setId(1L);
+        testTable.setTableNumber(99);
+        testTable.setCapacity(4);
+        testTable.setIsVip(false);
 
-        // Время для бронирования
         startTime = LocalDateTime.now().plusHours(1);
         endTime = startTime.plusHours(2);
+
+        // Не делаем лишних заглушек здесь, будем настраивать их в каждом тесте отдельно
     }
 
     @Test
     void createBookingWithoutConflict() {
+        // Настройка мока для поиска столика по ID
+        when(tableRepository.findById(1L)).thenReturn(Optional.of(testTable));
+        // Настройка мока для проверки отсутствия конфликтов
+        when(bookingRepository.findConflictingBookings(anyLong(), any(), any()))
+                .thenReturn(Collections.emptyList());
+        // Настройка сохранения бронирования
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> {
+            Booking booking = invocation.getArgument(0);
+            booking.setId(100L);
+            return booking;
+        });
+        // Не нужно беспокоиться об отправке писем в тесте
+        doNothing().when(emailService).sendBookingConfirmation(any(Booking.class));
+
         // Создаем DTO для бронирования
         BookingDto bookingDto = createTestBookingDto(testTable.getId(), startTime, endTime);
 
-        // Создаем бронь
+        // Вызываем тестируемый метод
         Booking booking = bookingService.createBooking(bookingDto);
 
         // Проверяем результат
         assertNotNull(booking);
-        assertNotNull(booking.getId());
-        assertEquals(testTable.getId(), booking.getTable().getId());
+        assertEquals(100L, booking.getId());
+        assertEquals(testTable, booking.getTable());
         assertEquals(bookingDto.getCustomerName(), booking.getCustomerName());
         assertEquals(bookingDto.getCustomerEmail(), booking.getCustomerEmail());
         assertEquals(BookingStatus.CONFIRMED, booking.getStatus());
 
-        // Проверяем, что бронь сохранилась в базе
-        List<Booking> bookings = bookingRepository.findByTableId(testTable.getId());
-        assertEquals(1, bookings.size());
+        // Проверяем, что были вызваны нужные методы репозиториев
+        verify(tableRepository).findById(testTable.getId());
+        verify(bookingRepository).findConflictingBookings(eq(testTable.getId()), any(), any());
+        verify(bookingRepository).save(any(Booking.class));
+        verify(emailService).sendBookingConfirmation(any(Booking.class));
     }
 
     @Test
     void createBookingWithConflict() {
-        // Создаем первую бронь
-        BookingDto firstBookingDto = createTestBookingDto(testTable.getId(), startTime, endTime);
-        bookingService.createBooking(firstBookingDto);
+        // Настройка мока для поиска столика по ID
+        when(tableRepository.findById(1L)).thenReturn(Optional.of(testTable));
+        // Настройка мока для имитации конфликта
+        List<Booking> conflictingBookings = new ArrayList<>();
+        conflictingBookings.add(mock(Booking.class));
+        when(bookingRepository.findConflictingBookings(anyLong(), any(), any()))
+                .thenReturn(conflictingBookings);
 
-        // Пытаемся создать вторую бронь на то же время
-        BookingDto conflictingBookingDto = createTestBookingDto(
-                testTable.getId(),
-                startTime.plusMinutes(30), // перекрывается с первой
-                endTime.plusMinutes(30)
-        );
+        // Создаем DTO для бронирования
+        BookingDto bookingDto = createTestBookingDto(testTable.getId(), startTime, endTime);
 
-        // Проверяем, что выбрасывается ожидаемое исключение
+        // Проверяем, что выбрасывается исключение
         BookingConflictException exception = assertThrows(
                 BookingConflictException.class,
-                () -> bookingService.createBooking(conflictingBookingDto)
+                () -> bookingService.createBooking(bookingDto)
         );
 
         // Проверяем сообщение об ошибке
         assertTrue(exception.getMessage().contains("уже забронирован"));
 
-        // Проверяем, что в базе осталась только одна бронь
-        List<Booking> bookings = bookingRepository.findByTableId(testTable.getId());
-        assertEquals(1, bookings.size());
+        // Проверяем, что save не был вызван
+        verify(bookingRepository, never()).save(any(Booking.class));
+        verify(emailService, never()).sendBookingConfirmation(any(Booking.class));
     }
 
     @Test
     void cancelBooking() {
-        // Создаем бронь
-        BookingDto bookingDto = createTestBookingDto(testTable.getId(), startTime, endTime);
-        Booking booking = bookingService.createBooking(bookingDto);
+        // Подготовка тестовых данных
+        Booking existingBooking = new Booking();
+        existingBooking.setId(1L);
+        existingBooking.setTable(testTable);
+        existingBooking.setStatus(BookingStatus.CONFIRMED);
+        existingBooking.setCustomerName("Тестовый Клиент");
+        existingBooking.setCustomerEmail("test@example.com");
+        existingBooking.setStartTime(startTime);
+        existingBooking.setEndTime(endTime);
 
-        // Отменяем бронь
-        Booking cancelledBooking = bookingService.cancelBooking(booking.getId());
+        // Настройка моков
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(existingBooking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doNothing().when(emailService).sendBookingCancellation(any(Booking.class));
 
-        // Проверяем статус
+        // Вызываем тестируемый метод
+        Booking cancelledBooking = bookingService.cancelBooking(1L);
+
+        // Проверяем результат
         assertEquals(BookingStatus.CANCELLED, cancelledBooking.getStatus());
 
-        // Проверяем состояние в базе
-        Booking fromDb = bookingRepository.findById(booking.getId()).orElse(null);
-        assertNotNull(fromDb);
-        assertEquals(BookingStatus.CANCELLED, fromDb.getStatus());
+        // Проверяем, что методы репозитория были вызваны
+        verify(bookingRepository).findById(1L);
+        verify(bookingRepository).save(cancelledBooking);
+        verify(emailService).sendBookingCancellation(any(Booking.class));
     }
 
     // Вспомогательный метод для создания тестового DTO

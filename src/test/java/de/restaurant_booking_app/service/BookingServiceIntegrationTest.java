@@ -3,6 +3,7 @@ package de.restaurant_booking_app.service;
 import de.restaurant_booking_app.dto.BookingDto;
 import de.restaurant_booking_app.exception.BookingConflictException;
 import de.restaurant_booking_app.model.Booking;
+import de.restaurant_booking_app.model.BookingStatus;
 import de.restaurant_booking_app.model.BookingTable;
 import de.restaurant_booking_app.repository.BookingRepository;
 import de.restaurant_booking_app.repository.BookingTableRepository;
@@ -10,22 +11,51 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 
 @SpringBootTest
 @Transactional
+@ActiveProfiles("test") // Используем специальный профиль для тестов
 public class BookingServiceIntegrationTest {
+
+    @TestConfiguration
+    static class IntegrationTestConfig {
+        // Мок EmailService для тестов
+        @Bean
+        @Primary
+        public EmailService emailService() {
+            EmailService mockEmailService = mock(EmailService.class);
+            doNothing().when(mockEmailService).sendBookingConfirmation(any(Booking.class));
+            doNothing().when(mockEmailService).sendBookingCancellation(any(Booking.class));
+            doNothing().when(mockEmailService).sendBookingUpdate(any(Booking.class));
+            return mockEmailService;
+        }
+
+        // Мок EmailReceiverService для тестов, чтобы избежать проблемы с 'mail.imap.host'
+        @Bean
+        @Primary
+        public EmailReceiverService emailReceiverService() {
+            return mock(EmailReceiverService.class);
+        }
+    }
 
     @Autowired
     private BookingService bookingService;
-
-    @Autowired
-    private TableService tableService;
 
     @Autowired
     private BookingRepository bookingRepository;
@@ -39,11 +69,11 @@ public class BookingServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Очищаем все данные перед каждым тестом
+        // Очищаем данные перед каждым тестом
         bookingRepository.deleteAll();
         tableRepository.deleteAll();
 
-        // Создаем тестовый столик в реальной базе данных
+        // Создаем тестовый столик
         testTable = BookingTable.builder()
                 .tableNumber(99)
                 .capacity(4)
@@ -51,7 +81,7 @@ public class BookingServiceIntegrationTest {
                 .build();
         testTable = tableRepository.save(testTable);
 
-        // Устанавливаем время для бронирования (на час вперёд)
+        // Устанавливаем время для бронирования
         startTime = LocalDateTime.now().plusHours(1);
         endTime = startTime.plusHours(2);
     }
@@ -70,6 +100,7 @@ public class BookingServiceIntegrationTest {
         assertEquals(testTable.getId(), booking.getTable().getId());
         assertEquals(bookingDto.getCustomerName(), booking.getCustomerName());
         assertEquals(bookingDto.getCustomerEmail(), booking.getCustomerEmail());
+        assertEquals(BookingStatus.CONFIRMED, booking.getStatus());
 
         // Проверяем, что бронирование сохранено в базе
         List<Booking> bookings = bookingRepository.findByTableId(testTable.getId());
@@ -85,7 +116,7 @@ public class BookingServiceIntegrationTest {
         // Пытаемся создать второе бронирование на то же время
         BookingDto conflictingBookingDto = createTestBookingDto(
                 testTable.getId(),
-                startTime.plusMinutes(30),  // перекрывается с первым
+                startTime.plusMinutes(30), // перекрывается с первым
                 endTime.plusMinutes(30)
         );
 
@@ -113,12 +144,12 @@ public class BookingServiceIntegrationTest {
         Booking cancelledBooking = bookingService.cancelBooking(booking.getId());
 
         // Проверяем, что бронирование отменено
-        assertEquals("CANCELLED", cancelledBooking.getStatus().toString());
+        assertEquals(BookingStatus.CANCELLED, cancelledBooking.getStatus());
 
         // Проверяем, что состояние сохранено в базе
         Booking fromDb = bookingRepository.findById(booking.getId()).orElse(null);
         assertNotNull(fromDb);
-        assertEquals("CANCELLED", fromDb.getStatus().toString());
+        assertEquals(BookingStatus.CANCELLED, fromDb.getStatus());
     }
 
     // Вспомогательный метод для создания тестового DTO бронирования

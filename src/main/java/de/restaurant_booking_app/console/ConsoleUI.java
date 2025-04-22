@@ -7,17 +7,22 @@ import de.restaurant_booking_app.model.BookingStatus;
 import de.restaurant_booking_app.model.BookingTable;
 import de.restaurant_booking_app.service.BookingService;
 import de.restaurant_booking_app.service.EmailReceiverService;
+import de.restaurant_booking_app.service.EmailService;
 import de.restaurant_booking_app.service.TableService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import org.thymeleaf.context.Context;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @Profile("!test")
@@ -26,15 +31,17 @@ public class ConsoleUI implements CommandLineRunner {
     private final BookingService bookingService;
     private final TableService tableService;
     private final Scanner scanner;
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
     private final EmailReceiverService emailReceiverService;
+    private final EmailService emailService;
 
     @Autowired
-    public ConsoleUI(BookingService bookingService, TableService tableService, EmailReceiverService emailReceiverService) {
+    public ConsoleUI(BookingService bookingService, TableService tableService, EmailReceiverService emailReceiverService, EmailService emailService) {
         this.bookingService = bookingService;
         this.tableService = tableService;
         this.emailReceiverService = emailReceiverService;
         this.scanner = new Scanner(System.in);
+        this.emailService = emailService;
     }
 
     @Override
@@ -45,7 +52,7 @@ public class ConsoleUI implements CommandLineRunner {
         boolean running = true;
         while (running) {
             printMenu();
-            int choice = readIntInput();
+            int choice = (int) readLongInput();
 
             switch (choice) {
                 case 1:
@@ -58,10 +65,13 @@ public class ConsoleUI implements CommandLineRunner {
                     cancelBooking();
                     break;
                 case 4:
-                    running = false;
+                    checkEmails();
                     break;
                 case 5:
                     running = false;
+                    break;
+                case 6:
+                    sendTestEmail();
                     break;
                 default:
                     System.out.println("Неверный выбор. Пожалуйста, попробуйте снова.");
@@ -79,12 +89,13 @@ public class ConsoleUI implements CommandLineRunner {
         System.out.println("3. Отменить бронирование");
         System.out.println("4. Проверить входящую почту");
         System.out.println("5. Выйти");
+        System.out.println("6. Отправить тестовое письмо администратору");
         System.out.print("Выберите опцию: ");
     }
 
-    private int readIntInput() {
+    private long readLongInput() {
         try {
-            return Integer.parseInt(scanner.nextLine());
+            return Long.parseLong(scanner.nextLine());
         } catch (NumberFormatException e) {
             return -1;
         }
@@ -108,14 +119,14 @@ public class ConsoleUI implements CommandLineRunner {
         }
 
         // Собрать данные для бронирования
-        System.out.print("Введите ID столика: ");
-        Long tableId = (long) readIntInput();
+        Long tableId = readTableIdWithValidation();
+        if (tableId == null) return;
 
-        System.out.print("Введите дату и время начала (yyyy-MM-dd HH:mm): ");
+        System.out.print("Введите дату и время начала (dd-MM-yyyy HH:mm): ");
         LocalDateTime startTime = readDateTime();
         if (startTime == null) return;
 
-        System.out.print("Введите дату и время окончания (yyyy-MM-dd HH:mm): ");
+        System.out.print("Введите дату и время окончания (dd-MM-yyyy HH:mm): ");
         LocalDateTime endTime = readDateTime();
         if (endTime == null) return;
 
@@ -172,7 +183,7 @@ public class ConsoleUI implements CommandLineRunner {
         System.out.println("\n=== Отмена бронирования ===");
         System.out.print("Введите ID бронирования для отмены: ");
 
-        long bookingId = readIntInput();
+        long bookingId = readLongInput();
 
         try {
             Booking booking = bookingService.getBookingById(bookingId);
@@ -189,33 +200,102 @@ public class ConsoleUI implements CommandLineRunner {
         }
     }
 
+
+    private static final List<String> EXIT_COMMANDS = Arrays.asList(
+            "выход", "exit", "q", "quit", "отмена", "cancel"
+    );
+
     private LocalDateTime readDateTime() {
-        try {
-            String input = scanner.nextLine();
-            return LocalDateTime.parse(input, formatter);
-        } catch (DateTimeParseException e) {
-            System.out.println("Неверный формат даты и времени. Используйте формат: yyyy-MM-dd HH:mm");
-            return null;
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
+        Scanner scanner = new Scanner(System.in);
+
+        while (true) {
+            try {
+                String input = scanner.nextLine().trim();
+
+                // Проверка на команды выхода
+                if (EXIT_COMMANDS.contains(input.toLowerCase())) {
+                    return null;
+                }
+
+                // Парсинг даты
+                return LocalDateTime.parse(input, formatter);
+
+            } catch (DateTimeParseException e) {
+                System.out.println("\nОшибка: Неверный формат даты. Пример корректного формата: 31-12-2023 14:30");
+                System.out.print("Пожалуйста, введите дату заново или одну из команд выхода ("
+                        + String.join(", ", EXIT_COMMANDS) + "): ");
+            }
         }
     }
 
     private void checkEmails() {
         System.out.println("\n=== Проверка непрочитанных писем ===");
 
-        List<String> unreadEmails = emailReceiverService.readUnreadEmails();
+        try {
+            List<String> unreadEmails = emailReceiverService.readUnreadEmails();
 
-        if (unreadEmails.isEmpty()) {
-            System.out.println("Непрочитанных писем нет.");
-            return;
-        }
+            if (unreadEmails.isEmpty()) {
+                System.out.println("Непрочитанных писем нет.");
+                return; // Просто выходим из метода, но не из программы
+            }
 
-        System.out.println("Найдено " + unreadEmails.size() + " непрочитанных писем:");
+            System.out.println("Найдено " + unreadEmails.size() + " непрочитанных писем:");
 
-        for (int i = 0; i < unreadEmails.size(); i++) {
-            System.out.println("\nПисьмо #" + (i + 1) + ":");
-            System.out.println("----------------------------");
-            System.out.println(unreadEmails.get(i));
-            System.out.println("----------------------------");
+            for (int i = 0; i < unreadEmails.size(); i++) {
+                System.out.println("\nПисьмо #" + (i + 1) + ":");
+                System.out.println("----------------------------");
+                System.out.println(unreadEmails.get(i));
+                System.out.println("----------------------------");
+            }
+        } catch (Exception e) {
+            System.out.println("Ошибка при проверке почты: " + e.getMessage());
+            System.out.println("Трассировка стека: ");
+            e.printStackTrace(); // Добавьте это для отладки
         }
     }
+
+    private void sendTestEmail() {
+        System.out.print("Введите email для отправки тестового письма администратору: ");
+        String email = scanner.nextLine();
+
+        try {
+            Context context = new Context();
+            context.setVariable("name", "Администратор");
+            context.setVariable("message", "Это тестовое уведомление для администратора системы.");
+
+            emailService.sendEmail(email, "Уведомление администратора", context);
+            System.out.println("Тестовое письмо успешно отправлено на " + email);
+        } catch (Exception e) {
+            System.out.println("Ошибка при отправке письма: " + e.getMessage());
+        }
+    }
+
+    private Long readTableIdWithValidation() {
+        List<BookingTable> availableTables = tableService.getAllTables();
+        Set<Long> existingTableIds = availableTables.stream()
+                .map(BookingTable::getId)
+                .collect(Collectors.toSet());
+
+        while (true) {
+            System.out.print("Введите ID столика: ");
+            long inputId = readLongInput();
+
+            if (inputId == -1) {
+                System.out.println("Ошибка: Введите корректный числовой ID.");
+                continue;
+            }
+
+            if (existingTableIds.contains(inputId)) {
+                return inputId;
+            } else {
+                System.out.println("Ошибка: Столик с ID " + inputId + " не существует.");
+                System.out.println("Доступные столики: " +
+                        availableTables.stream()
+                                .map(t -> t.getId().toString())
+                                .collect(Collectors.joining(", ")));
+            }
+        }
+    }
+
 }
