@@ -1,0 +1,79 @@
+groups:
+  - name: restaurant-booking-alerts
+    rules:
+      # Оповещение о высоком использовании CPU
+      - alert: HighCPULoad
+        expr: process_cpu_usage > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокая нагрузка на CPU"
+          description: "CPU использование превышает 80% в течение 5 минут"
+          value: "{{ $value }}"
+
+      # Оповещение о нехватке памяти
+      - alert: HighMemoryUsage
+        expr: sum(jvm_memory_used_bytes) / sum(jvm_memory_max_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокое использование памяти"
+          description: "Использование памяти JVM превышает 90% в течение 5 минут"
+          value: "{{ $value }}"
+
+      # Оповещение о высоком времени отклика
+      - alert: HighResponseTime
+        expr: http_server_requests_seconds_max{uri!~"^/actuator.*"} > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокое время отклика API"
+          description: "Время отклика превышает 2 секунды на эндпоинте {{ $labels.uri }}"
+          value: "{{ $value }}"
+
+      # Оповещение о большом количестве ошибок HTTP
+      - alert: HighErrorRate
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Высокий уровень ошибок HTTP"
+          description: "Более 5% запросов возвращают ошибки 5xx в течение 5 минут"
+          value: "{{ $value }}"
+
+      # Оповещение о недоступности сервиса
+      - alert: ServiceDown
+        expr: up{job="restaurant-booking-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Сервис недоступен"
+          description: "Сервис restaurant-booking-app недоступен"
+          value: "{{ $value }}"
+
+      # Оповещение о низкой доступности дисков
+      - alert: LowDiskSpace
+        expr: disk_free_bytes / disk_total_bytes < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Недостаточно места на диске"
+          description: "Осталось менее 10% свободного места на диске {{ $labels.path }}"
+          value: "{{ $value }}"
+
+      # Оповещение о большом количестве неуспешных бронирований
+      - alert: HighBookingFailureRate
+        expr: rate(booking_failures_total[5m]) / rate(booking_attempts_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокий процент неудачных бронирований"
+          description: "Более 10% попыток бронирования заканчиваются неудачей"
+          value: "{{ $value }}"

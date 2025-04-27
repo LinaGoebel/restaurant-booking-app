@@ -25,6 +25,7 @@ public class EmailService {
     public EmailService(JavaMailSender mailSender, TemplateEngine templateEngine) {
         this.mailSender = mailSender;
         this.templateEngine = templateEngine;
+        log.info("EmailService инициализирован");
     }
 
     /**
@@ -66,8 +67,9 @@ public class EmailService {
 
             sendEmail(booking.getCustomerEmail(), "Подтверждение бронирования столика", context);
             log.info("Отправлено подтверждение бронирования на email: {}", booking.getCustomerEmail());
-        } catch (MessagingException e) {
-            log.error("Ошибка при отправке подтверждения бронирования: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("Ошибка при отправке подтверждения бронирования: {}", e.getMessage(), e);
+            // Не пробрасываем исключение, чтобы не прерывать процесс бронирования
         }
     }
 
@@ -82,8 +84,9 @@ public class EmailService {
 
             sendEmail(booking.getCustomerEmail(), "Отмена бронирования столика", context);
             log.info("Отправлено уведомление об отмене бронирования на email: {}", booking.getCustomerEmail());
-        } catch (MessagingException e) {
-            log.error("Ошибка при отправке уведомления об отмене бронирования: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("Ошибка при отправке уведомления об отмене бронирования: {}", e.getMessage(), e);
+            // Не пробрасываем исключение, чтобы не прерывать процесс отмены
         }
     }
 
@@ -98,8 +101,9 @@ public class EmailService {
 
             sendEmail(booking.getCustomerEmail(), "Изменение бронирования столика", context);
             log.info("Отправлено уведомление об изменении бронирования на email: {}", booking.getCustomerEmail());
-        } catch (MessagingException e) {
-            log.error("Ошибка при отправке уведомления об изменении бронирования: {}", e.getMessage());
+        } catch (Exception e) {
+            log.error("Ошибка при отправке уведомления об изменении бронирования: {}", e.getMessage(), e);
+            // Не пробрасываем исключение, чтобы не прерывать процесс обновления
         }
     }
 
@@ -107,16 +111,26 @@ public class EmailService {
      * Общий метод для отправки писем
      */
     public void sendEmail(String to, String subject, Context context) throws MessagingException {
-        String htmlContent = templateEngine.process("email-template", context);
+        if (to == null || to.trim().isEmpty()) {
+            log.warn("Попытка отправить письмо на пустой email-адрес");
+            return;
+        }
 
-        MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+        try {
+            String htmlContent = templateEngine.process("email-template", context);
 
-        helper.setTo(to);
-        helper.setSubject(subject);
-        helper.setText(htmlContent, true);
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-        mailSender.send(message);
-        log.info("Отправлено письмо на email: {}", to);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.debug("Отправлено письмо на email: {}", to);
+        } catch (MessagingException e) {
+            log.error("Ошибка при отправке письма на {}: {}", to, e.getMessage());
+            throw e;
+        }
     }
 }

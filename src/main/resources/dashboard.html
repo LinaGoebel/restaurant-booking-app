@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель администратора - Ресторан</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .card-counter {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            padding: 20px 10px;
+            background-color: #fff;
+            height: 100px;
+            border-radius: 5px;
+            transition: .3s linear all;
+        }
+        .card-counter:hover {
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
+        }
+        .card-counter i {
+            font-size: 4em;
+            opacity: 0.5;
+        }
+        .card-counter .count-numbers {
+            position: absolute;
+            right: 35px;
+            top: 20px;
+            font-size: 32px;
+            display: block;
+        }
+        .card-counter .count-name {
+            position: absolute;
+            right: 35px;
+            top: 65px;
+            opacity: 0.5;
+            display: block;
+            font-size: 18px;
+        }
+        .bg-primary {
+            background: linear-gradient(45deg, #4CAF50, #8BC34A);
+            color: #FFF;
+        }
+        .bg-danger {
+            background: linear-gradient(45deg, #FF5722, #F44336);
+            color: #FFF;
+        }
+        .bg-success {
+            background: linear-gradient(45deg, #03A9F4, #00BCD4);
+            color: #FFF;
+        }
+        .bg-info {
+            background: linear-gradient(45deg, #9C27B0, #673AB7);
+            color: #FFF;
+        }
+        .sidebar {
+            min-height: calc(100vh - 56px);
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+        }
+    </style>
+</head>
+<body>
+<!-- Верхняя навигация -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/admin">Ресторан "У Клода" - Администрирование</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/" target="_blank">
+                        <i class="bi bi-box-arrow-up-right"></i> Сайт
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/logout">
+                        <i class="bi bi-box-arrow-right"></i> Выход
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Боковая навигация -->
+        <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/admin">
+                            <i class="bi bi-speedometer2"></i> Обзор
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/bookings">
+                            <i class="bi bi-calendar-check"></i> Бронирования
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/tables">
+                            <i class="bi bi-grid-3x3"></i> Столики
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/menu">
+                            <i class="bi bi-card-list"></i> Меню
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/reports">
+                            <i class="bi bi-bar-chart"></i> Отчеты
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/settings">
+                            <i class="bi bi-gear"></i> Настройки
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Основное содержимое -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Панель управления</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <a href="/admin/bookings/create" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-plus-circle"></i> Новое бронирование
+                        </a>
+                        <a href="/admin/tables/create" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-plus-circle"></i> Новый столик
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Информационные карточки -->
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="card-counter bg-primary">
+                        <i class="bi bi-calendar-check"></i>
+                        <span class="count-numbers" th:text="${todayBookings.size()}">12</span>
+                        <span class="count-name">Сегодня</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card-counter bg-success">
+                        <i class="bi bi-grid-3x3"></i>
+                        <span class="count-numbers">25</span>
+                        <span class="count-name">Всего столиков</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card-counter bg-info">
+                        <i class="bi bi-clock-history"></i>
+                        <span class="count-numbers">56</span>
+                        <span class="count-name">Ожидается</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card-counter bg-danger">
+                        <i class="bi bi-x-circle"></i>
+                        <span class="count-numbers">7</span>
+                        <span class="count-name">Отменено</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Сегодняшние бронирования -->
+            <div class="my-4">
+                <h3>Бронирования на сегодня</h3>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Столик</th>
+                            <th>Время</th>
+                            <th>Клиент</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${todayBookings.isEmpty()}">
+                            <td colspan="6" class="text-center">Бронирований на сегодня нет</td>
+                        </tr>
+                        <tr th:each="booking : ${todayBookings}">
+                            <td th:text="${booking.id}">1</td>
+                            <td th:text="${booking.table.tableNumber}">5</td>
+                            <td>
+                                <span th:text="${#temporals.format(booking.startTime, 'HH:mm')}">14:00</span> -
+                                <span th:text="${#temporals.format(booking.endTime, 'HH:mm')}">16:00</span>
+                            </td>
+                            <td th:text="${booking.customerName}">Иван Иванов</td>
+                            <td>
+                                <span th:if="${booking.status.name() == 'CONFIRMED'}" class="badge bg-success">Подтверждено</span>
+                                <span th:if="${booking.status.name() == 'PENDING'}" class="badge bg-warning">Ожидает</span>
+                                <span th:if="${booking.status.name() == 'CANCELLED'}" class="badge bg-danger">Отменено</span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a th:href="@{/admin/bookings/{id}(id=${booking.id})}" class="btn btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a th:href="@{/admin/bookings/{id}/edit(id=${booking.id})}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger"
+                                            data-bs-toggle="modal" th:data-bs-target="'#cancelModal' + ${booking.id}">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Модальное окно подтверждения отмены -->
+                                <div class="modal fade" th:id="'cancelModal' + ${booking.id}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Подтверждение отмены</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Вы уверены, что хотите отменить бронирование #<span th:text="${booking.id}">1</span>?</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                                <form th:action="@{/admin/bookings/{id}/cancel(id=${booking.id})}" method="post">
+                                                    <button type="submit" class="btn btn-danger">Отменить бронирование</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- График загруженности -->
+            <div class="row my-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            Загруженность по часам (Сегодня)
+                        </div>
+                        <div class="card-body">
+                            <canvas id="hourlyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            Загруженность по дням (Текущая неделя)
+                        </div>
+                        <div class="card-body">
+                            <canvas id="dailyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Демо-данные для графиков
+    const hourlyData = {
+        labels: ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'],
+        datasets: [{
+            label: 'Количество бронирований',
+            data: [2, 3, 5, 8, 6, 4, 2, 3, 7, 9, 8, 5],
+            backgroundColor: 'rgba(76, 175, 80, 0.2)',
+            borderColor: 'rgba(76, 175, 80, 1)',
+            borderWidth: 1
+        }]
+    };
+
+    const dailyData = {
+        labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+        datasets: [{
+            label: 'Количество бронирований',
+            data: [12, 19, 15, 17, 28, 34, 23],
+            backgroundColor: 'rgba(33, 150, 243, 0.2)',
+            borderColor: 'rgba(33, 150, 243, 1)',
+            borderWidth: 1
+        }]
+    };
+
+    // Инициализация графиков
+    window.addEventListener('DOMContentLoaded', (event) => {
+        const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+        new Chart(hourlyCtx, {
+            type: 'bar',
+            data: hourlyData,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+        new Chart(dailyCtx, {
+            type: 'bar',
+            data: dailyData,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+</script>
+</body>
+</html>

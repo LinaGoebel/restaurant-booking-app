@@ -44,7 +44,7 @@ public class BookingServiceTest {
     @BeforeEach
     void setUp() {
         // Инициализация сервиса с моками
-        bookingService = new BookingService(tableRepository, bookingRepository, emailService);
+
 
         // Настройка тестовых данных
         testTable = new BookingTable();

@@ -37,10 +37,23 @@ services:
       - DB_NAME=restaurantdb
       - DB_USER=postgres
       - DB_PASSWORD=postgres.2025
+      - MAIL_HOST=smtp.gmail.com
+      - MAIL_PORT=587
+      - MAIL_USERNAME=${MAIL_USERNAME:-your-email@gmail.com}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-your-app-password}
+      - MAIL_IMAP_HOST=imap.gmail.com
+      - MAIL_IMAP_PORT=993
     ports:
       - "8080:8080"
     networks:
       - restaurant-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
 
 networks:
   restaurant-network:

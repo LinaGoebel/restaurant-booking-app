@@ -2,6 +2,8 @@ package de.restaurant_booking_app.console;
 
 import de.restaurant_booking_app.dto.BookingDto;
 import de.restaurant_booking_app.exception.BookingConflictException;
+import de.restaurant_booking_app.exception.InvalidBookingException;
+import de.restaurant_booking_app.exception.ResourceNotFoundException;
 import de.restaurant_booking_app.model.Booking;
 import de.restaurant_booking_app.model.BookingStatus;
 import de.restaurant_booking_app.model.BookingTable;
@@ -52,7 +54,7 @@ public class ConsoleUI implements CommandLineRunner {
         boolean running = true;
         while (running) {
             printMenu();
-            int choice = (int) readLongInput();
+            int choice = readIntInput();
 
             switch (choice) {
                 case 1:
@@ -91,6 +93,14 @@ public class ConsoleUI implements CommandLineRunner {
         System.out.println("5. Выйти");
         System.out.println("6. Отправить тестовое письмо администратору");
         System.out.print("Выберите опцию: ");
+    }
+
+    private int readIntInput() {
+        try {
+            return Integer.parseInt(scanner.nextLine());
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     private long readLongInput() {
@@ -132,9 +142,17 @@ public class ConsoleUI implements CommandLineRunner {
 
         System.out.print("Введите имя клиента: ");
         String customerName = scanner.nextLine();
+        if (customerName.trim().isEmpty()) {
+            System.out.println("Ошибка: Имя клиента не может быть пустым.");
+            return;
+        }
 
         System.out.print("Введите email клиента: ");
         String customerEmail = scanner.nextLine();
+        if (customerEmail.trim().isEmpty() || !customerEmail.contains("@")) {
+            System.out.println("Ошибка: Введите корректный email.");
+            return;
+        }
 
         System.out.print("Введите телефон клиента (необязательно): ");
         String customerPhone = scanner.nextLine();
@@ -154,29 +172,46 @@ public class ConsoleUI implements CommandLineRunner {
             System.out.println("Бронирование успешно создано с ID: " + booking.getId());
         } catch (BookingConflictException e) {
             System.out.println("Ошибка: " + e.getMessage());
+        } catch (InvalidBookingException e) {
+            System.out.println("Ошибка в данных бронирования: " + e.getMessage());
+        } catch (ResourceNotFoundException e) {
+            System.out.println("Ошибка: " + e.getMessage());
         } catch (Exception e) {
-            System.out.println("Произошла ошибка: " + e.getMessage());
+            System.out.println("Произошла непредвиденная ошибка: " + e.getMessage());
         }
     }
 
     private void viewAllBookings() {
         System.out.println("\n=== Все бронирования ===");
-        List<Booking> bookings = bookingService.getAllBookings();
 
-        if (bookings.isEmpty()) {
-            System.out.println("Бронирований нет.");
-            return;
-        }
+        try {
+            List<Booking> bookings = bookingService.getAllBookings();
 
-        for (Booking booking : bookings) {
-            System.out.printf("ID: %d, Столик: %d, Клиент: %s, Статус: %s%n" +
-                            "Время: с %s по %s%n",
-                    booking.getId(), booking.getTable().getTableNumber(),
-                    booking.getCustomerName(), booking.getStatus(),
-                    booking.getStartTime().format(formatter),
-                    booking.getEndTime().format(formatter));
-            System.out.println("-------------------------");
+            if (bookings.isEmpty()) {
+                System.out.println("Бронирований нет.");
+                return;
+            }
+
+            for (Booking booking : bookings) {
+                System.out.printf("ID: %d, Столик: %d, Клиент: %s, Статус: %s%n" +
+                                "Время: с %s по %s%n",
+                        booking.getId(), booking.getTable().getTableNumber(),
+                        booking.getCustomerName(), getStatusText(booking.getStatus()),
+                        booking.getStartTime().format(formatter),
+                        booking.getEndTime().format(formatter));
+                System.out.println("-------------------------");
+            }
+        } catch (Exception e) {
+            System.out.println("Ошибка при получении списка бронирований: " + e.getMessage());
         }
+    }
+
+    private String getStatusText(BookingStatus status) {
+        return switch (status) {
+            case CONFIRMED -> "Подтверждено";
+            case CANCELLED -> "Отменено";
+            case PENDING -> "Ожидает подтверждения";
+        };
     }
 
     private void cancelBooking() {
@@ -184,6 +219,10 @@ public class ConsoleUI implements CommandLineRunner {
         System.out.print("Введите ID бронирования для отмены: ");
 
         long bookingId = readLongInput();
+        if (bookingId <= 0) {
+            System.out.println("Ошибка: Введите корректный ID бронирования.");
+            return;
+        }
 
         try {
             Booking booking = bookingService.getBookingById(bookingId);
@@ -193,13 +232,21 @@ public class ConsoleUI implements CommandLineRunner {
                 return;
             }
 
+            System.out.print("Вы уверены, что хотите отменить бронирование? (да/нет): ");
+            String confirm = scanner.nextLine().trim().toLowerCase();
+            if (!"да".equals(confirm) && !"yes".equals(confirm)) {
+                System.out.println("Отмена операции.");
+                return;
+            }
+
             bookingService.cancelBooking(bookingId);
             System.out.println("Бронирование успешно отменено.");
+        } catch (ResourceNotFoundException e) {
+            System.out.println("Ошибка: " + e.getMessage());
         } catch (Exception e) {
-            System.out.println("Произошла ошибка: " + e.getMessage());
+            System.out.println("Произошла ошибка при отмене бронирования: " + e.getMessage());
         }
     }
-
 
     private static final List<String> EXIT_COMMANDS = Arrays.asList(
             "выход", "exit", "q", "quit", "отмена", "cancel"
@@ -207,7 +254,6 @@ public class ConsoleUI implements CommandLineRunner {
 
     private LocalDateTime readDateTime() {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
-        Scanner scanner = new Scanner(System.in);
 
         while (true) {
             try {
@@ -237,7 +283,7 @@ public class ConsoleUI implements CommandLineRunner {
 
             if (unreadEmails.isEmpty()) {
                 System.out.println("Непрочитанных писем нет.");
-                return; // Просто выходим из метода, но не из программы
+                return;
             }
 
             System.out.println("Найдено " + unreadEmails.size() + " непрочитанных писем:");
@@ -250,14 +296,18 @@ public class ConsoleUI implements CommandLineRunner {
             }
         } catch (Exception e) {
             System.out.println("Ошибка при проверке почты: " + e.getMessage());
-            System.out.println("Трассировка стека: ");
-            e.printStackTrace(); // Добавьте это для отладки
+            System.out.println("Проверьте настройки IMAP в файле конфигурации.");
         }
     }
 
     private void sendTestEmail() {
         System.out.print("Введите email для отправки тестового письма администратору: ");
         String email = scanner.nextLine();
+
+        if (email.trim().isEmpty() || !email.contains("@")) {
+            System.out.println("Ошибка: Введите корректный email.");
+            return;
+        }
 
         try {
             Context context = new Context();
@@ -268,34 +318,39 @@ public class ConsoleUI implements CommandLineRunner {
             System.out.println("Тестовое письмо успешно отправлено на " + email);
         } catch (Exception e) {
             System.out.println("Ошибка при отправке письма: " + e.getMessage());
+            System.out.println("Проверьте настройки SMTP в файле конфигурации.");
         }
     }
 
     private Long readTableIdWithValidation() {
-        List<BookingTable> availableTables = tableService.getAllTables();
-        Set<Long> existingTableIds = availableTables.stream()
-                .map(BookingTable::getId)
-                .collect(Collectors.toSet());
+        try {
+            List<BookingTable> availableTables = tableService.getAllTables();
+            Set<Long> existingTableIds = availableTables.stream()
+                    .map(BookingTable::getId)
+                    .collect(Collectors.toSet());
 
-        while (true) {
-            System.out.print("Введите ID столика: ");
-            long inputId = readLongInput();
+            while (true) {
+                System.out.print("Введите ID столика: ");
+                long inputId = readLongInput();
 
-            if (inputId == -1) {
-                System.out.println("Ошибка: Введите корректный числовой ID.");
-                continue;
+                if (inputId == -1) {
+                    System.out.println("Ошибка: Введите корректный числовой ID.");
+                    continue;
+                }
+
+                if (existingTableIds.contains(inputId)) {
+                    return inputId;
+                } else {
+                    System.out.println("Ошибка: Столик с ID " + inputId + " не существует.");
+                    System.out.println("Доступные столики: " +
+                            availableTables.stream()
+                                    .map(t -> t.getId().toString())
+                                    .collect(Collectors.joining(", ")));
+                }
             }
-
-            if (existingTableIds.contains(inputId)) {
-                return inputId;
-            } else {
-                System.out.println("Ошибка: Столик с ID " + inputId + " не существует.");
-                System.out.println("Доступные столики: " +
-                        availableTables.stream()
-                                .map(t -> t.getId().toString())
-                                .collect(Collectors.joining(", ")));
-            }
+        } catch (Exception e) {
+            System.out.println("Ошибка при получении списка столиков: " + e.getMessage());
+            return null;
         }
     }
-
 }
